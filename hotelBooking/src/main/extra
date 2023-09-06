@@ -1,0 +1,310 @@
+Room and Booking entities for the database.
+RoomRepository and BookingRepository JPA repositories for database operations.
+BookingService to handle the logic of room availability and booking.
+BookingController to expose RESTful APIs.
+First, let's start by defining the Room entity:
+
+java
+Copy code
+import javax.persistence.Entity;
+import javax.persistence.Id;
+
+@Entity
+public class Room {
+    @Id
+    private Long id;
+    private String hotelName;
+    private Integer availableRooms;
+
+    // Getters and Setters
+}
+Next, define the Booking entity:
+
+java
+Copy code
+import javax.persistence.Entity;
+import javax.persistence.Id;
+
+@Entity
+public class Booking {
+    @Id
+    private Long id;
+    private Long roomId;
+    private String customerName;
+
+    // Getters and Setters
+}
+Now let's define repositories for these entities:
+
+java
+Copy code
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface RoomRepository extends JpaRepository<Room, Long> {
+    Room findByHotelName(String hotelName);
+}
+java
+Copy code
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface BookingRepository extends JpaRepository<Booking, Long> {
+}
+Now let's create the service class:
+
+java
+Copy code
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class BookingService {
+
+    @Autowired
+    private RoomRepository roomRepository;
+
+    @Autowired
+    private BookingRepository bookingRepository;
+
+    @Transactional
+    public String bookRoom(String hotelName, String customerName) {
+        Room room = roomRepository.findByHotelName(hotelName);
+
+        if (room == null) {
+            return "Hotel not found";
+        }
+
+        if (room.getAvailableRooms() > 0) {
+            room.setAvailableRooms(room.getAvailableRooms() - 1);
+            roomRepository.save(room);
+
+            Booking booking = new Booking();
+            booking.setRoomId(room.getId());
+            booking.setCustomerName(customerName);
+            bookingRepository.save(booking);
+
+            return "Booking successful!";
+        } else {
+            return "No rooms available";
+        }
+    }
+}
+Finally, create the controller:
+
+java
+Copy code
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/booking")
+public class BookingController {
+
+    @Autowired
+    private BookingService bookingService;
+
+    @PostMapping("/book")
+    public String bookRoom(@RequestParam String hotelName, @RequestParam String customerName) {
+        return bookingService.bookRoom(hotelName, customerName);
+    }
+}
+To run this code, you will need to add the required dependencies in your pom.xml file. The dependencies you need are spring-boot-starter-web and spring-boot-starter-data-jpa, and you'll also need a database like H2 for demonstration purposes.
+
+Please note that this is a simplified example and does not include validation, exception handling, or other important aspects you would typically include in a production application.
+
+
+
+
+User
+
+2 / 2
+
+i want a complex version of this and i will be using gradle
+ChatGPT
+Sure, let's create a more complex version of the hotel room booking system. This version will include additional entities, relationships, service methods, and RESTful APIs. I will also show how you can configure the build.gradle file to include the required dependencies.
+
+Here's an outline of what the complex version will include:
+
+A new Hotel entity to represent a hotel, which will have a one-to-many relationship with Room.
+Update Room to include more details like room type and price.
+Update Booking to include booking dates.
+API for listing all available rooms in a specific hotel.
+API for viewing all bookings.
+Firstly, let's start by defining the Gradle dependencies in build.gradle:
+
+groovy
+Copy code
+plugins {
+    id 'org.springframework.boot' version '2.5.5'
+    id 'io.spring.dependency-management' version '1.0.11.RELEASE'
+    id 'java'
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    runtimeOnly 'com.h2database:h2'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+repositories {
+    mavenCentral()
+}
+Entities
+Hotel Entity
+java
+Copy code
+import javax.persistence.*;
+import java.util.List;
+
+@Entity
+public class Hotel {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    private String name;
+
+    @OneToMany(mappedBy = "hotel", cascade = CascadeType.ALL)
+    private List<Room> rooms;
+
+    // Getters and Setters
+}
+Room Entity
+java
+Copy code
+import javax.persistence.*;
+
+@Entity
+public class Room {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    private String type;
+    private Double price;
+    private Integer availableRooms;
+
+    @ManyToOne
+    @JoinColumn(name = "hotel_id")
+    private Hotel hotel;
+
+    // Getters and Setters
+}
+Booking Entity
+java
+Copy code
+import javax.persistence.*;
+import java.util.Date;
+
+@Entity
+public class Booking {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    private Long roomId;
+    private String customerName;
+    private Date startDate;
+    private Date endDate;
+
+    // Getters and Setters
+}
+Repositories
+HotelRepository
+java
+Copy code
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface HotelRepository extends JpaRepository<Hotel, Long> {
+}
+RoomRepository
+java
+Copy code
+import org.springframework.data.jpa.repository.JpaRepository;
+import java.util.List;
+
+public interface RoomRepository extends JpaRepository<Room, Long> {
+    List<Room> findByHotelIdAndAvailableRoomsGreaterThan(Long hotelId, int availableRooms);
+}
+BookingRepository
+java
+Copy code
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface BookingRepository extends JpaRepository<Booking, Long> {
+}
+Service Class
+java
+Copy code
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+
+@Service
+public class BookingService {
+
+    @Autowired
+    private RoomRepository roomRepository;
+
+    @Autowired
+    private BookingRepository bookingRepository;
+
+    @Transactional
+    public String bookRoom(Long hotelId, String type, String customerName) {
+        List<Room> rooms = roomRepository.findByHotelIdAndAvailableRoomsGreaterThan(hotelId, 0);
+
+        Room targetRoom = rooms.stream().filter(r -> r.getType().equals(type)).findFirst().orElse(null);
+
+        if (targetRoom == null) {
+            return "No rooms of the requested type are available.";
+        }
+
+        targetRoom.setAvailableRooms(targetRoom.getAvailableRooms() - 1);
+        roomRepository.save(targetRoom);
+
+        Booking booking = new Booking();
+        booking.setRoomId(targetRoom.getId());
+        booking.setCustomerName(customerName);
+        bookingRepository.save(booking);
+
+        return "Booking successful!";
+    }
+
+    public List<Room> getAvailableRooms(Long hotelId) {
+        return roomRepository.findByHotelIdAndAvailableRoomsGreaterThan(hotelId, 0);
+    }
+
+    public List<Booking> getAllBookings() {
+        return bookingRepository.findAll();
+    }
+}
+Controller Class
+java
+Copy code
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/booking")
+public class BookingController {
+
+    @Autowired
+    private BookingService bookingService;
+
+    @PostMapping("/book")
+    public String bookRoom(@RequestParam Long hotelId, @RequestParam String type, @RequestParam String customerName) {
+        return bookingService.bookRoom(hotelId, type, customerName);
+    }
+
+    @GetMapping("/available")
+    public List<Room> getAvailableRooms(@RequestParam Long hotelId) {
+        return bookingService.getAvailableRooms(hotelId);
+    }
+
+    @GetMapping("/all")
+    public List<Booking> getAllBookings() {
+        return bookingService.getAllBookings();
+    }
+}
